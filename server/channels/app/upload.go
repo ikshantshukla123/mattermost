@@ -95,9 +95,9 @@ func (a *App) runPluginsHook(rctx request.CTX, info *model.FileInfo, file io.Rea
 	}
 
 	// A plugin that doesn't write to the output leaves the file unchanged
-// (see FileWillBeUploaded contract). Probe for one byte to distinguish
-// "nothing written" from real content before creating the .tmp replacement,
-// since some S3-compatible backends reject empty, unknown-size writes.
+	// (see FileWillBeUploaded contract). Probe for one byte to distinguish
+	// "nothing written" from real content before creating the .tmp replacement,
+	// since some S3-compatible backends reject empty, unknown-size writes.
 	probe := make([]byte, 1)
 	n, probeErr := io.ReadFull(r, probe)
 	if probeErr == io.EOF {
@@ -134,6 +134,9 @@ func (a *App) runPluginsHook(rctx request.CTX, info *model.FileInfo, file io.Rea
 
 	info.Size = written
 	if fileErr := a.MoveFile(tmpPath, info.Path); fileErr != nil {
+		if removeErr := a.RemoveFile(tmpPath); removeErr != nil {
+			rctx.Logger().Warn("Failed to remove file", mlog.Err(removeErr))
+		}
 		return model.NewAppError("runPluginsHook", "app.upload.run_plugins_hook.move_fail",
 			nil, "", http.StatusInternalServerError).Wrap(fileErr)
 	}
